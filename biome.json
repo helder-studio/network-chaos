@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
+  "linter": {
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "files": {
+    "includes": ["**", "!**/.changeset", "!**/CHANGELOG.md"]
+  },
+  "overrides": [
+    {
+      "includes": ["src/react/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noReactNativeRawText": "off"
+          }
+        }
+      }
+    }
+  ]
+}

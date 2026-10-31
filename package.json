@@ -1,0 +1,129 @@
+{
+  "name": "@helder-studio/network-chaos",
+  "version": "0.0.0",
+  "description": "Simulate slow, flaky and failing APIs on a real device. Rules, presets and a QA panel for React Native and web, no dev tools needed.",
+  "keywords": [
+    "react-native",
+    "react",
+    "network",
+    "chaos",
+    "testing",
+    "qa",
+    "fetch",
+    "xhr",
+    "offline",
+    "latency"
+  ],
+  "license": "MIT",
+  "author": "helder-studio",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/helder-studio/network-chaos.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "react-native": {
+        "import": {
+          "types": "./dist/native.d.ts",
+          "default": "./dist/native.js"
+        },
+        "require": {
+          "types": "./dist/native.d.cts",
+          "default": "./dist/native.cjs"
+        }
+      },
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./noop": {
+      "import": {
+        "types": "./dist/noop.d.ts",
+        "default": "./dist/noop.js"
+      },
+      "require": {
+        "types": "./dist/noop.d.cts",
+        "default": "./dist/noop.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "check:pkg": "publint && attw --pack . --profile node16",
+    "size": "size-limit",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check:pkg && pnpm size",
+    "changeset": "changeset",
+    "release": "node scripts/publish.mjs",
+    "coverage": "vitest run --coverage --coverage.include=src/**"
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.js",
+      "limit": "5 kB",
+      "ignore": [
+        "react"
+      ]
+    },
+    {
+      "path": "dist/native.js",
+      "limit": "8 kB",
+      "ignore": [
+        "react",
+        "react-native"
+      ]
+    }
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "packageManager": "pnpm@11.5.2",
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "^2.6.4",
+    "@changesets/cli": "^3.0.3",
+    "@size-limit/preset-small-lib": "^14.3.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitest/coverage-v8": "^5.0.5",
+    "happy-dom": "^21.0.4",
+    "publint": "^0.3.25",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-native": "0.88.1",
+    "size-limit": "^14.3.0",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-native": ">=0.76"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@helder-studio/storage": "^0.1.2"
+  }
+}

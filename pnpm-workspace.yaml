@@ -1,0 +1,5 @@
+nodeLinker: hoisted
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - "@helder-studio/storage@0.1.2"
