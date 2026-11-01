@@ -54,3 +54,6 @@ export const networkChaosTab = {
   subscribe: () => noop,
   render: () => null,
 };
+
+export type { AgentTool } from './agent';
+export const chaosAgentTools: import('./agent').AgentTool[] = [];

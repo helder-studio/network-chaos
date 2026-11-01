@@ -144,6 +144,24 @@ import { DevDock } from '@helder-studio/dev-dock';
 </NetworkChaos>;
 ```
 
+## Let AI coding agents drive it (React Native)
+
+With [Rozenite for Agents](https://www.rozenite.dev), an agent like Claude Code can set presets,
+add rules and read the request log in the running app: "make checkout flaky and check the error
+state". network-chaos ships the tool definitions; you register them, so there's no dependency:
+
+```tsx
+import { useRozeniteInAppAgentTool } from '@rozenite/agent-bridge';
+import { chaosAgentTools } from '@helder-studio/network-chaos';
+
+function AgentTools() {
+  for (const t of chaosAgentTools) useRozeniteInAppAgentTool({ domain: 'helder-studio', ...t });
+  return null;
+}
+```
+
+Tools: `chaos-set-preset`, `chaos-add-rule`, `chaos-clear`, `chaos-get-log`.
+
 ## Keep it out of production
 
 ```js
