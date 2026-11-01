@@ -1,6 +1,6 @@
 {
   "name": "@helder-studio/network-chaos",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Simulate slow, flaky and failing APIs on a real device. Rules, presets and a QA panel for React Native and web, no dev tools needed.",
   "keywords": [
     "react-native",
