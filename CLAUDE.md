@@ -18,6 +18,10 @@ React Native + web. PDF: "Library 2: Network Chaos".
 - Entries: `index` (web, DOM panel), `native` (exports condition `react-native`), `noop` (same API,
   does nothing), `testing` (`createTestChaos` for Jest/Vitest).
 
+- `src/core/llm.ts`: provider detection (host, then path shape) and real error bodies per provider.
+  Stream effects wrap `Response.body` in `intercept/install.ts` (`chaosStream`); RN XHR streaming is
+  not covered (v0.3 scope).
+
 ## Decisions
 
 - Spike rescoped (2026-10-31): no devices here, and `@mswjs/interceptors` would break the
@@ -26,6 +30,7 @@ React Native + web. PDF: "Library 2: Network Chaos".
   `chaos.install()` exists for apps whose HTTP client captures `fetch` at import.
 - Code rules (`chaos.rule`) are not saved; panel rules, toggles, preset and switches are.
 - `malformed` answers 200 with truncated JSON instead of corrupting a real response (simpler, same test value).
+- Web size limit 6 kB since v0.3 (provider error bodies).
 - attw runs with `--profile node16`: node10 can't resolve the `./noop` subpath.
 
 ## Open

@@ -54,6 +54,8 @@ export default function Root() {
   to make that endpoint fail, slow, time out or go flaky
 - 🎯 **Precise rules**: method + URL glob, host and header matching, latency ranges, status codes,
   network errors, timeouts and malformed bodies
+- 🤖 **LLM-ready**: slow, stalled or dropped token streams and real OpenAI / Anthropic / Gemini
+  rate-limit and overload errors, with presets
 - 🎲 **Reproducible**: seed the random rate rolls and replay the same run
 - 💾 **Survives restarts**: panel settings are saved through any
   [`@helder-studio/storage`](https://github.com/helder-studio/storage) adapter
@@ -88,7 +90,30 @@ chaos.rule({ match: '*', host: 'api.example.com', headers: { 'x-beta': '1' }, la
 
 The first matching rule with an outcome (`fail`, `error`, `malformed`) decides it.
 
-## Controller
+## AI apps: LLM and streaming chaos
+
+Chat UIs stream. Test what happens when tokens crawl, the stream stalls or drops halfway, or the
+provider says "slow down" — on a real phone, against the real API.
+
+```ts
+chaos.preset('llm-flaky'); // 'llm-slow' | 'llm-flaky' | 'llm-rate-limited' | 'llm-overloaded'
+
+chaos.rule({ match: '*', llm: true, stream: { chunkDelayMs: [150, 400] } }); // slow tokens
+chaos.rule({ match: '*', llm: true, stream: { cutAfter: 8 } }); // connection drops mid-answer
+chaos.rule({ match: '*', llm: true, stream: { stallAfter: 5 } }); // hangs until the client aborts
+chaos.rule({ match: '*', llm: true, stream: { malformed: true } }); // broken SSE event
+chaos.rule({ match: '*', llm: true, llmError: 'rate-limit' }); // 429 + retry-after, real body
+chaos.rule({ match: '*', llm: true, llmError: 'overloaded' }); // Anthropic 529, OpenAI/Gemini 503
+```
+
+- `llm: true` limits a rule to OpenAI, Anthropic and Gemini calls, by host or by API path shape
+  (`/v1/messages`, `/chat/completions`, `:streamGenerateContent`), so your own proxy counts too.
+- `llmError` (`rate-limit`, `overloaded`, `context-length`, `content-filter`) answers with the
+  provider's real status, JSON error body and `retry-after`.
+- Stream effects wrap any streamed `fetch` body (`ReadableStream`): browsers, Next.js, Node and
+  Expo's streaming fetch. React Native's XHR-based streaming isn't covered yet; provider errors are.
+
+
 
 ```ts
 chaos.preset('flaky'); // 'offline' | 'slow-3g' | '3g' | 'flaky' | null

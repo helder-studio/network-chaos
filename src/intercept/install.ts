@@ -8,17 +8,33 @@ interface AbortSignalLike {
   addEventListener(type: 'abort', listener: () => void): void;
   removeEventListener(type: 'abort', listener: () => void): void;
 }
+interface ReaderLike {
+  read(): Promise<{ done: boolean; value?: unknown }>;
+  cancel(reason?: unknown): Promise<void>;
+}
 interface ResponseLike {
   status: number;
+  statusText?: string;
+  headers?: unknown;
+  body?: { getReader(): ReaderLike } | null;
 }
 type FetchLike = (
   input: unknown,
   init?: { method?: string; signal?: AbortSignalLike },
 ) => Promise<ResponseLike>;
 type ResponseCtor = new (
-  body: string,
-  init: { status: number; headers?: Record<string, string> },
+  body: unknown,
+  init: { status: number; statusText?: string; headers?: unknown },
 ) => ResponseLike;
+type StreamCtor = new (source: {
+  pull(controller: StreamController): Promise<void>;
+  cancel(reason?: unknown): Promise<void>;
+}) => unknown;
+interface StreamController {
+  enqueue(chunk: unknown): void;
+  close(): void;
+  error(reason: unknown): void;
+}
 
 interface XhrLike {
   readyState: number;
@@ -36,6 +52,8 @@ type XhrCtor = { prototype: XhrLike };
 const g = globalThis as unknown as {
   fetch?: FetchLike;
   Response?: ResponseCtor;
+  ReadableStream?: StreamCtor;
+  TextEncoder?: new () => { encode(text: string): unknown };
   XMLHttpRequest?: XhrCtor;
   Event?: new (type: string) => unknown;
   navigator?: { product?: string };
@@ -105,7 +123,7 @@ function patchFetch(chaos: Chaos, original: FetchLike): FetchLike {
       }
       const response = await original(input, init);
       finish(response.status);
-      return response;
+      return effect?.stream ? chaosStream(response, effect.stream, signal, chaos) : response;
     } catch (error) {
       finish(0);
       throw error;
@@ -113,11 +131,65 @@ function patchFetch(chaos: Chaos, original: FetchLike): FetchLike {
   };
 }
 
+const BROKEN_SSE = 'data: {"choices":[{"delta":{"content":"\n\n';
+
+/**
+ * Re-wraps a streamed body so chunks arrive slowly, stall, drop mid-stream or carry a broken SSE
+ * event. Needs `ReadableStream` (browsers, Node, Expo's streaming fetch); otherwise passes through.
+ */
+function chaosStream(
+  response: ResponseLike,
+  stream: NonNullable<Effect['stream']>,
+  signal: AbortSignalLike | undefined,
+  chaos: Chaos,
+): ResponseLike {
+  const reader = response.body?.getReader?.();
+  if (!reader || !g.ReadableStream || !g.Response) return response;
+  let chunks = 0;
+  let injected = false;
+  const body = new g.ReadableStream({
+    async pull(controller) {
+      try {
+        if (stream.stallAfter !== undefined && chunks >= stream.stallAfter) {
+          await wait(Number.POSITIVE_INFINITY, signal);
+        }
+        if (stream.cutAfter !== undefined && chunks >= stream.cutAfter) {
+          await reader.cancel();
+          controller.error(new TypeError('Network connection was lost.'));
+          return;
+        }
+        if (stream.chunkDelayMs !== undefined) await wait(chaos.pick(stream.chunkDelayMs), signal);
+        const { done, value } = await reader.read();
+        if (done) return controller.close();
+        chunks++;
+        controller.enqueue(value);
+        if (stream.malformed && !injected && g.TextEncoder) {
+          injected = true;
+          controller.enqueue(new g.TextEncoder().encode(BROKEN_SSE));
+        }
+      } catch (error) {
+        await reader.cancel(error).catch(() => {});
+        controller.error(error);
+      }
+    },
+    cancel: (reason) => reader.cancel(reason),
+  });
+  return new g.Response(body, {
+    status: response.status,
+    ...(response.statusText !== undefined && { statusText: response.statusText }),
+    headers: response.headers,
+  });
+}
+
 function fakeResponse(
   effect: Effect,
 ): { status: number; body: string; headers: Record<string, string> } | undefined {
   if (effect.fail) {
-    return { status: effect.fail.status, body: effect.fail.body ?? '', headers: {} };
+    return {
+      status: effect.fail.status,
+      body: effect.fail.body ?? '',
+      headers: effect.fail.headers ?? {},
+    };
   }
   if (effect.malformed) {
     return { status: 200, body: MALFORMED_BODY, headers: { 'content-type': 'application/json' } };

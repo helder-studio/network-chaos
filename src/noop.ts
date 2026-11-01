@@ -29,6 +29,7 @@ export const chaos: ChaosController = {
   preset: noop,
   open: noop,
   close: noop,
+  pick: () => 0,
   seed: noop,
   ignore: noop,
   clearLog: noop,

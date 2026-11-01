@@ -74,7 +74,17 @@ function FloatingBadge() {
   );
 }
 
-const PRESET_OPTIONS: (PresetName | null)[] = [null, '3g', 'slow-3g', 'flaky', 'offline'];
+const PRESET_OPTIONS: (PresetName | null)[] = [
+  null,
+  '3g',
+  'slow-3g',
+  'flaky',
+  'offline',
+  'llm-slow',
+  'llm-flaky',
+  'llm-rate-limited',
+  'llm-overloaded',
+];
 
 function Panel() {
   const state = useChaosState();

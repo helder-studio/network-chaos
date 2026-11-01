@@ -68,6 +68,15 @@ export function describeRule(rule: ReturnType<typeof chaos.getState>['rules'][nu
   if (rule.fail) parts.push(`→ ${rule.fail.status}`);
   if (rule.error) parts.push(rule.error === 'network' ? 'network error' : 'timeout');
   if (rule.malformed) parts.push('malformed body');
+  if (rule.llmError) parts.push(`LLM ${rule.llmError}`);
+  if (rule.stream) {
+    const { chunkDelayMs: d, stallAfter, cutAfter, malformed } = rule.stream;
+    if (d !== undefined)
+      parts.push(`stream ${typeof d === 'number' ? d : `${d[0]}–${d[1]}`} ms/chunk`);
+    if (stallAfter !== undefined) parts.push(`stall after ${stallAfter} chunks`);
+    if (cutAfter !== undefined) parts.push(`cut after ${cutAfter} chunks`);
+    if (malformed) parts.push('broken SSE event');
+  }
   if (rule.latency !== undefined) {
     parts.push(
       typeof rule.latency === 'number'

@@ -1,3 +1,5 @@
+import { isLlmRequest, type LlmErrorKind, llmErrorResponse, llmProviderOf } from './llm';
+
 /** A request as the interceptors see it. */
 export interface ChaosRequest {
   method: string;
@@ -24,10 +26,27 @@ export interface Rule {
   rate?: number;
   latency?: Range;
   /** Answer with this status instead of calling the server. */
-  fail?: { status: number; body?: string };
+  fail?: { status: number; body?: string; headers?: Record<string, string> };
   /** `network`: the request fails like offline. `timeout`: it hangs until the client aborts. */
   error?: 'network' | 'timeout';
   /** Answer 200 with a truncated JSON body instead of calling the server. */
+  malformed?: boolean;
+  /** Only match LLM API calls (OpenAI, Anthropic, Gemini hosts and their path shapes). */
+  llm?: boolean;
+  /** Answer with the provider's real error (status, JSON body, `retry-after`). */
+  llmError?: LlmErrorKind;
+  /** Mangle a streamed response body (SSE / chunked) as it arrives. */
+  stream?: StreamEffect;
+}
+
+export interface StreamEffect {
+  /** Delay before each chunk, e.g. `[150, 400]` for a slow token stream. */
+  chunkDelayMs?: Range;
+  /** After this many chunks the stream stops sending until the client aborts. */
+  stallAfter?: number;
+  /** After this many chunks the connection drops (the read rejects). */
+  cutAfter?: number;
+  /** Inject a broken SSE event after the first chunk. */
   malformed?: boolean;
 }
 
@@ -63,6 +82,7 @@ export function ruleMatches(rule: Rule, req: ChaosRequest): boolean {
   const target = pattern.startsWith('/') ? pathOf(req.url) : req.url;
   if (!globToRegExp(pattern).test(target)) return false;
   if (rule.host && !globToRegExp(rule.host).test(hostOf(req.url))) return false;
+  if (rule.llm && !isLlmRequest(req.url)) return false;
   if (rule.headers) {
     const actual: Record<string, string> = {};
     for (const [k, v] of Object.entries(req.headers ?? {})) actual[k.toLowerCase()] = v;
@@ -76,22 +96,25 @@ export function ruleMatches(rule: Rule, req: ChaosRequest): boolean {
 /** What happens to one request. */
 export interface Effect {
   latencyMs: number;
-  fail?: { status: number; body?: string };
+  fail?: { status: number; body?: string; headers?: Record<string, string> };
   error?: 'network' | 'timeout';
   malformed?: boolean;
+  /** Applied to the response body as it streams in. */
+  stream?: StreamEffect;
   /** Ids of the rules that applied. */
   rules: string[];
 }
 
-function pick(range: Range, random: () => number): number {
+export function pickRange(range: Range, random: () => number): number {
   if (typeof range === 'number') return range;
   const [min, max] = range;
   return Math.round(min + (max - min) * random());
 }
 
 /**
- * Applies every matching rule in order: the longest latency wins, and the first rule with an
- * outcome (fail, error, malformed) decides it. `null` means the request passes untouched.
+ * Applies every matching rule in order: the longest latency wins, the first rule with an outcome
+ * (fail, llmError, error, malformed) decides it, and stream effects combine (earlier rules win).
+ * `null` means the request passes untouched.
  */
 export function resolveEffect(
   rules: readonly (Rule & { id: string })[],
@@ -105,11 +128,14 @@ export function resolveEffect(
     effect ??= { latencyMs: 0, rules: [] };
     effect.rules.push(rule.id);
     if (rule.latency !== undefined) {
-      effect.latencyMs = Math.max(effect.latencyMs, pick(rule.latency, random));
+      effect.latencyMs = Math.max(effect.latencyMs, pickRange(rule.latency, random));
     }
+    // Stream effects combine across rules; for each field the earlier rule wins.
+    if (rule.stream) effect.stream = { ...rule.stream, ...effect.stream };
     const decided = effect.fail || effect.error || effect.malformed;
     if (!decided) {
-      if (rule.fail) effect.fail = rule.fail;
+      if (rule.llmError) effect.fail = llmErrorResponse(rule.llmError, llmProviderOf(req.url));
+      else if (rule.fail) effect.fail = rule.fail;
       else if (rule.error) effect.error = rule.error;
       else if (rule.malformed) effect.malformed = true;
     }

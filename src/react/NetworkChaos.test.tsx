@@ -99,6 +99,13 @@ describe('panel helpers', () => {
       '50% → 503, 800–3000 ms',
     );
     expect(describeRule({ ...base, error: 'timeout' })).toBe('timeout');
+    expect(
+      describeRule({
+        ...base,
+        llmError: 'rate-limit',
+        stream: { chunkDelayMs: [50, 300], cutAfter: 8 },
+      }),
+    ).toBe('LLM rate-limit, stream 50–300 ms/chunk, cut after 8 chunks');
     expect(describeRule({ ...base, malformed: true, latency: 5 })).toBe('malformed body, 5 ms');
   });
 

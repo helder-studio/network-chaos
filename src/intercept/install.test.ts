@@ -119,6 +119,94 @@ describe('fetch', () => {
   });
 });
 
+describe('fetch streams', () => {
+  const encoder = new TextEncoder();
+  const streamed = (chunks: string[]) =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          for (const c of chunks) controller.enqueue(encoder.encode(c));
+          controller.close();
+        },
+      }),
+      { status: 200, headers: { 'content-type': 'text/event-stream' } },
+    );
+  const sse = ['data: a\n\n', 'data: b\n\n', 'data: c\n\n', 'data: d\n\n'];
+  const url = 'https://api.openai.com/v1/chat/completions';
+
+  async function readAll(res: Response) {
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    const decoder = new TextDecoder();
+    const parts: string[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return parts;
+      parts.push(decoder.decode(value));
+    }
+  }
+
+  it('delays every chunk', async () => {
+    realFetch.mockResolvedValueOnce(streamed(sse));
+    chaos.rule({ match: '*', stream: { chunkDelayMs: 100 } });
+    const res = await fetch(url, { method: 'POST' });
+    expect(res.headers.get('content-type')).toBe('text/event-stream');
+    let parts: string[] | undefined;
+    void readAll(res).then((p) => {
+      parts = p;
+    });
+    await vi.advanceTimersByTimeAsync(399);
+    expect(parts).toBe(undefined);
+    await vi.advanceTimersByTimeAsync(101);
+    expect(parts).toEqual(sse);
+  });
+
+  it('drops the connection after N chunks', async () => {
+    realFetch.mockResolvedValueOnce(streamed(sse));
+    chaos.rule({ match: '*', stream: { cutAfter: 2 } });
+    const res = await fetch(url, { method: 'POST' });
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    await reader.read();
+    await reader.read();
+    await expect(reader.read()).rejects.toThrow('Network connection was lost.');
+  });
+
+  it('stalls after N chunks until the client aborts', async () => {
+    realFetch.mockResolvedValueOnce(streamed(sse));
+    chaos.rule({ match: '*', stream: { stallAfter: 1 } });
+    const controller = new AbortController();
+    const res = await fetch(url, { method: 'POST', signal: controller.signal });
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    await reader.read();
+    const next = reader.read();
+    let settled = false;
+    next.catch(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(settled).toBe(false);
+    controller.abort();
+    await expect(next).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('injects a broken SSE event after the first chunk', async () => {
+    realFetch.mockResolvedValueOnce(streamed(sse));
+    chaos.rule({ match: '*', stream: { malformed: true } });
+    const parts = await readAll(await fetch(url, { method: 'POST' }));
+    expect(parts[0]).toBe('data: a\n\n');
+    expect(parts[1]).toContain('{"choices":[{"delta":{"content":"');
+    expect(parts).toHaveLength(5);
+  });
+
+  it('answers with provider errors without calling the server', async () => {
+    chaos.preset('llm-rate-limited');
+    const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST' });
+    expect(res.status).toBe(429);
+    expect(res.headers.get('retry-after')).toBe('20');
+    expect((await res.json()).error.type).toBe('rate_limit_error');
+    expect(realFetch).not.toHaveBeenCalled();
+  });
+});
+
 describe('XMLHttpRequest', () => {
   it('passes through and logs the status', async () => {
     const { events } = request('https://x.dev/a');

@@ -1,9 +1,24 @@
 import type { StorageAdapter } from '@helder-studio/storage';
 import { PRESETS, type PresetName } from './presets';
 import { seededRandom } from './random';
-import { type ChaosRequest, type Effect, globToRegExp, type Rule, resolveEffect } from './rules';
+import {
+  type ChaosRequest,
+  type Effect,
+  globToRegExp,
+  pickRange,
+  type Range,
+  type Rule,
+  resolveEffect,
+} from './rules';
 
-export type Outcome = 'passed' | 'delayed' | 'failed' | 'network error' | 'timeout' | 'malformed';
+export type Outcome =
+  | 'passed'
+  | 'delayed'
+  | 'failed'
+  | 'network error'
+  | 'timeout'
+  | 'malformed'
+  | 'stream chaos';
 
 export interface LogEntry {
   id: number;
@@ -47,6 +62,7 @@ function outcomeOf(effect: Effect | null): Outcome {
   if (effect.error === 'network') return 'network error';
   if (effect.error === 'timeout') return 'timeout';
   if (effect.malformed) return 'malformed';
+  if (effect.stream) return 'stream chaos';
   return 'delayed';
 }
 
@@ -140,6 +156,8 @@ export function createChaos(now: () => number = Date.now) {
     },
     open: () => set({ open: true }, false),
     close: () => set({ open: false }, false),
+    /** A value from a `Range`, using the (seedable) random source. */
+    pick: (range: Range) => pickRange(range, random),
     /** Seeds rate rolls so a run is reproducible. */
     seed(value: number) {
       random = seededRandom(value);
