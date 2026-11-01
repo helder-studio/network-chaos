@@ -102,6 +102,21 @@ chaos.getLog(); // last 200 requests with outcome and status
 Interception starts when `<NetworkChaos enabled>` first renders. If an HTTP client grabs `fetch`
 before that, call `chaos.install()` at the top of your entry file instead.
 
+## With dev-dock
+
+Using several helder-studio tools? Show them in one floating panel with
+[`@helder-studio/dev-dock`](https://github.com/helder-studio/dev-dock):
+
+```tsx
+import { NetworkChaos, networkChaosTab } from '@helder-studio/network-chaos';
+import { DevDock } from '@helder-studio/dev-dock';
+
+<NetworkChaos enabled={qa} storage={storage} badge={false}>
+  <App />
+  <DevDock enabled={qa} tabs={[networkChaosTab]} />
+</NetworkChaos>;
+```
+
 ## Keep it out of production
 
 ```js

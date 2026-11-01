@@ -32,7 +32,7 @@ export function NetworkChaos(props: NetworkChaosProps) {
   return (
     <>
       {props.children}
-      {props.enabled && (
+      {props.enabled && props.badge !== false && (
         <>
           <FloatingBadge />
           <Panel />
@@ -78,8 +78,6 @@ const PRESET_OPTIONS: (PresetName | null)[] = [null, '3g', 'slow-3g', 'flaky', '
 
 function Panel() {
   const state = useChaosState();
-  const log = useChaosLog();
-  const [selected, setSelected] = useState<number | null>(null);
   return (
     <Modal visible={state.open} animationType="slide" onRequestClose={chaos.close}>
       <SafeAreaView style={styles.panel}>
@@ -89,77 +87,87 @@ function Panel() {
             <Text style={styles.link}>Close</Text>
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Row label="Chaos on">
-            <Switch value={state.on} onValueChange={chaos.setOn} />
-          </Row>
-          <Row label="Offline">
-            <Switch value={state.offline} onValueChange={chaos.setOffline} />
-          </Row>
-
-          <Text style={styles.section}>Preset</Text>
-          <View style={styles.chips}>
-            {PRESET_OPTIONS.map((name) => (
-              <Pressable
-                key={name ?? 'none'}
-                accessibilityRole="button"
-                accessibilityState={{ selected: state.preset === name }}
-                onPress={() => chaos.preset(name)}
-                style={[styles.chip, state.preset === name && styles.chipOn]}
-              >
-                <Text style={state.preset === name ? styles.chipTextOn : undefined}>
-                  {name ?? 'none'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.section}>Rules</Text>
-          {state.rules.length === 0 && (
-            <Text style={styles.muted}>No rules. Tap a request below to add one.</Text>
-          )}
-          {state.rules.map((rule) => (
-            <View key={rule.id} style={styles.rule}>
-              <View style={styles.flex}>
-                <Text style={styles.mono}>{rule.match}</Text>
-                <Text style={styles.muted}>{describeRule(rule)}</Text>
-              </View>
-              <Switch value={rule.enabled} onValueChange={(on) => chaos.toggleRule(rule.id, on)} />
-              {rule.source === 'panel' && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove rule ${rule.match}`}
-                  onPress={() => chaos.removeRule(rule.id)}
-                  hitSlop={12}
-                >
-                  <Text style={styles.remove}>✕</Text>
-                </Pressable>
-              )}
-            </View>
-          ))}
-
-          <View style={styles.header}>
-            <Text style={styles.section}>Requests</Text>
-            <Pressable accessibilityRole="button" onPress={chaos.clearLog} hitSlop={12}>
-              <Text style={styles.link}>Clear</Text>
-            </Pressable>
-          </View>
-          <FlatList
-            scrollEnabled={false}
-            data={log.slice(0, 50)}
-            keyExtractor={(entry) => String(entry.id)}
-            ListEmptyComponent={<Text style={styles.muted}>No requests yet.</Text>}
-            renderItem={({ item }) => (
-              <LogRow
-                entry={item}
-                expanded={selected === item.id}
-                onPress={() => setSelected(selected === item.id ? null : item.id)}
-              />
-            )}
-          />
-        </ScrollView>
+        <NetworkChaosPanel />
       </SafeAreaView>
     </Modal>
+  );
+}
+
+/** The panel content, also used as the dev-dock tab. */
+export function NetworkChaosPanel() {
+  const state = useChaosState();
+  const log = useChaosLog();
+  const [selected, setSelected] = useState<number | null>(null);
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <Row label="Chaos on">
+        <Switch value={state.on} onValueChange={chaos.setOn} />
+      </Row>
+      <Row label="Offline">
+        <Switch value={state.offline} onValueChange={chaos.setOffline} />
+      </Row>
+
+      <Text style={styles.section}>Preset</Text>
+      <View style={styles.chips}>
+        {PRESET_OPTIONS.map((name) => (
+          <Pressable
+            key={name ?? 'none'}
+            accessibilityRole="button"
+            accessibilityState={{ selected: state.preset === name }}
+            onPress={() => chaos.preset(name)}
+            style={[styles.chip, state.preset === name && styles.chipOn]}
+          >
+            <Text style={state.preset === name ? styles.chipTextOn : undefined}>
+              {name ?? 'none'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={styles.section}>Rules</Text>
+      {state.rules.length === 0 && (
+        <Text style={styles.muted}>No rules. Tap a request below to add one.</Text>
+      )}
+      {state.rules.map((rule) => (
+        <View key={rule.id} style={styles.rule}>
+          <View style={styles.flex}>
+            <Text style={styles.mono}>{rule.match}</Text>
+            <Text style={styles.muted}>{describeRule(rule)}</Text>
+          </View>
+          <Switch value={rule.enabled} onValueChange={(on) => chaos.toggleRule(rule.id, on)} />
+          {rule.source === 'panel' && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Remove rule ${rule.match}`}
+              onPress={() => chaos.removeRule(rule.id)}
+              hitSlop={12}
+            >
+              <Text style={styles.remove}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+      ))}
+
+      <View style={styles.header}>
+        <Text style={styles.section}>Requests</Text>
+        <Pressable accessibilityRole="button" onPress={chaos.clearLog} hitSlop={12}>
+          <Text style={styles.link}>Clear</Text>
+        </Pressable>
+      </View>
+      <FlatList
+        scrollEnabled={false}
+        data={log.slice(0, 50)}
+        keyExtractor={(entry) => String(entry.id)}
+        ListEmptyComponent={<Text style={styles.muted}>No requests yet.</Text>}
+        renderItem={({ item }) => (
+          <LogRow
+            entry={item}
+            expanded={selected === item.id}
+            onPress={() => setSelected(selected === item.id ? null : item.id)}
+          />
+        )}
+      />
+    </ScrollView>
   );
 }
 
@@ -263,3 +271,20 @@ const styles = StyleSheet.create({
     borderColor: '#dadce0',
   },
 });
+
+/**
+ * Tab for `@helder-studio/dev-dock`. Render `<NetworkChaos enabled badge={false}>` as usual for
+ * interception and storage, and pass this to `<DevDock tabs={[networkChaosTab]} />`.
+ */
+export const networkChaosTab = {
+  id: 'network-chaos',
+  title: 'Network',
+  status: () => {
+    const state = chaos.getState();
+    const active =
+      state.on && (state.offline || state.preset || state.rules.some((r) => r.enabled));
+    return active ? summary(state) : null;
+  },
+  subscribe: chaos.subscribe,
+  render: () => <NetworkChaosPanel />,
+};

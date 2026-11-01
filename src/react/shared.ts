@@ -10,6 +10,8 @@ export interface NetworkChaosProps {
   storage?: StorageAdapter;
   /** URL globs never touched, on top of the Metro dev server. */
   ignore?: string[];
+  /** React Native: `false` hides the floating badge and panel, e.g. when using dev-dock. */
+  badge?: boolean;
   /** Seeds rate rules for reproducible runs. */
   seed?: number;
   children?: ReactNode;

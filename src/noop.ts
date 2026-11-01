@@ -41,3 +41,15 @@ export const chaos: ChaosController = {
 export function NetworkChaos({ children }: NetworkChaosProps): ReactNode {
   return children ?? null;
 }
+
+export function NetworkChaosPanel(): null {
+  return null;
+}
+
+export const networkChaosTab = {
+  id: 'network-chaos',
+  title: 'Network',
+  status: () => null,
+  subscribe: () => noop,
+  render: () => null,
+};
