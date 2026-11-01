@@ -1,5 +1,7 @@
 # @helder-studio/network-chaos
 
+Shared rules, commands and conventions: @AGENTS.md
+
 Delays and fails an app's HTTP requests on purpose, with rules, presets and an on-device QA panel.
 React Native + web. PDF: "Library 2: Network Chaos".
 

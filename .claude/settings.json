@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": { "commit": "", "pr": "", "sessionUrl": false },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install*)",
+      "Bash(pnpm test*)",
+      "Bash(pnpm verify*)",
+      "Bash(pnpm coverage*)",
+      "Bash(pnpm format*)",
+      "Bash(pnpm typecheck*)",
+      "Bash(pnpm lint*)",
+      "Bash(pnpm build*)",
+      "Bash(pnpm changeset --*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(npm publish*)",
+      "Bash(pnpm publish*)",
+      "Bash(pnpm release*)",
+      "Bash(gh release *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/format.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
