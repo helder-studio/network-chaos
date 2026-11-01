@@ -57,6 +57,6 @@ usage and API tables, Compared with…, Support (Ko-fi), License. Document every
   co-author trailers.
 - Dependency updates are automatic: Dependabot opens PRs weekly, CI merges them when `pnpm verify`
   passes, and runtime-dependency updates release a patch to npm on their own. Major runtime updates
-  wait for review.
+  wait for review. A failing Dependabot PR, a failing `main` or a failed release opens an issue.
 - Never publish to npm, push tags or create releases by hand: merging the "Version Packages" PR
   makes CI publish with provenance.

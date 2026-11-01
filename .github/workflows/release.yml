@@ -11,6 +11,7 @@ permissions:
   contents: write # push tags and version commits, create GitHub releases
   pull-requests: write # open the "Version Packages" PR
   id-token: write # npm trusted publishing and provenance
+  issues: write # open an issue when a release fails
 
 jobs:
   release:
@@ -55,3 +56,16 @@ jobs:
         run: npm --version && pnpm release
         env:
           GH_TOKEN: ${{ github.token }}
+
+      # Any failed step above: open an issue (once while it's unresolved) so a broken release is seen.
+      - if: failure()
+        name: Open an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: Release failed on main
+        run: |
+          existing=$(gh issue list --repo "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$existing" = "0" ]; then
+            gh issue create --repo "${{ github.repository }}" --title "$TITLE" \
+              --body "The release workflow failed at ${{ github.sha }}. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

@@ -78,3 +78,43 @@ jobs:
           gh pr merge --squash "$PR_URL"
           # Merges made with this token don't trigger workflows, so start the release explicitly.
           gh workflow run release.yml --ref main --repo "${{ github.repository }}"
+
+  # A Dependabot PR that fails verify gets an issue, so the broken update isn't missed.
+  dependabot-failed:
+    needs: verify
+    if: failure() && github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TITLE: "Dependency update failed: ${{ github.event.pull_request.title }}"
+    steps:
+      - name: Open an issue (once per update)
+        run: |
+          existing=$(gh issue list --repo "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$existing" = "0" ]; then
+            gh issue create --repo "${{ github.repository }}" --title "$TITLE" --label dependencies \
+              --body "CI failed on ${{ github.event.pull_request.html_url }}, so it wasn't merged. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              || gh issue create --repo "${{ github.repository }}" --title "$TITLE" \
+              --body "CI failed on ${{ github.event.pull_request.html_url }}, so it wasn't merged. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi
+
+  # CI failing on main (a merge or push broke it): open an issue once while it's unresolved.
+  main-failed:
+    needs: verify
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TITLE: CI is failing on main
+    steps:
+      - name: Open an issue
+        run: |
+          existing=$(gh issue list --repo "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$existing" = "0" ]; then
+            gh issue create --repo "${{ github.repository }}" --title "$TITLE" \
+              --body "pnpm verify failed at ${{ github.sha }}. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi
