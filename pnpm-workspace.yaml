@@ -1,5 +1,7 @@
 nodeLinker: hoisted
 allowBuilds:
   esbuild: true
+# pnpm refuses versions younger than its minimum release age; our own packages are exempt
+# so dependent libraries can take a fresh @helder-studio release right away.
 minimumReleaseAgeExclude:
-  - "@helder-studio/storage@0.1.2"
+  - "@helder-studio/*"
