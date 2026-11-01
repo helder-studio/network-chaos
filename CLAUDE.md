@@ -11,7 +11,7 @@ React Native + web. PDF: "Library 2: Network Chaos".
 - `src/intercept/install.ts`: patches XHR everywhere and `fetch` on web only (RN's fetch runs on XHR,
   patching both would double the effect). Idempotent via `Symbol.for('helder-studio.network-chaos')`.
   Fake responses set instance props and dispatch events (`{ type }` objects when `Event` is missing).
-- `src/chaos.ts`: the `chaos` singleton. `src/react/`: shared hooks + web component (badge only).
+- `src/chaos.ts`: the `chaos` singleton. `src/react/`: shared hooks + web component (badge + DOM panel).
   `src/native/`: RN component with draggable badge and Modal panel (core RN primitives only).
 - Entries: `index` (web, DOM panel), `native` (exports condition `react-native`), `noop` (same API,
   does nothing), `testing` (`createTestChaos` for Jest/Vitest).
