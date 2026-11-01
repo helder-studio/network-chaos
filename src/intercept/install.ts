@@ -23,11 +23,13 @@ type ResponseCtor = new (
 interface XhrLike {
   readyState: number;
   status: number;
+  /** ms; 0 means no timeout. */
+  timeout?: number;
   open(method: string, url: string, ...rest: unknown[]): void;
   send(body?: unknown): void;
   abort(): void;
   dispatchEvent?(event: unknown): boolean;
-  addEventListener?(type: string, listener: () => void): void;
+  addEventListener?(type: string, listener: () => void, options?: { once?: boolean }): void;
 }
 type XhrCtor = { prototype: XhrLike };
 
@@ -131,26 +133,35 @@ type Meta = {
   pending?: boolean;
   finish?: (status: number) => void;
 };
-type Tracked = XhrLike & { [META]?: Meta };
+type Tracked = XhrLike & { [META]?: Meta | undefined };
 
 function fire(xhr: XhrLike, type: string) {
   // RN's XHR accepts plain `{ type }` objects; browsers need real Events. Both run `on<type>` too.
   xhr.dispatchEvent?.(g.Event ? new g.Event(type) : { type });
 }
 
+const FAKED = ['readyState', 'status', 'responseText', 'response', 'statusText'] as const;
+
 function settle(xhr: Tracked, status: number, body: string, events: string[]) {
-  const values = { readyState: 4, status, responseText: body, response: body, statusText: '' };
-  for (const [key, value] of Object.entries(values)) {
-    Object.defineProperty(xhr, key, { value, configurable: true });
-  }
+  const values = [4, status, body, body, ''];
+  FAKED.forEach((key, i) => {
+    Object.defineProperty(xhr, key, { value: values[i], configurable: true });
+  });
   for (const type of events) fire(xhr, type);
+}
+
+/** Drops fake values from an earlier settle so a reused instance reads the real ones again. */
+function unsettle(xhr: Tracked) {
+  for (const key of FAKED) delete (xhr as unknown as Record<string, unknown>)[key];
 }
 
 function patchXhr(chaos: Chaos, proto: XhrLike, saved: Installed) {
   const { open, send, abort } = saved as Required<Pick<Installed, 'open' | 'send' | 'abort'>>;
 
   proto.open = function (this: Tracked, method: string, url: string, ...rest: unknown[]) {
-    this[META] = { method, url: String(url) };
+    unsettle(this);
+    // Synchronous requests can't be delayed without blocking, so they pass untouched.
+    this[META] = rest[0] === false ? undefined : { method, url: String(url) };
     return open.call(this, method, url, ...rest);
   };
 
@@ -159,14 +170,27 @@ function patchXhr(chaos: Chaos, proto: XhrLike, saved: Installed) {
     if (!meta) return send.call(this, body);
     const { effect, finish } = chaos.decide(meta);
     meta.finish = finish;
+    const track = () =>
+      this.addEventListener?.('loadend', () => finish(this.status), { once: true });
     if (!effect) {
-      this.addEventListener?.('loadend', () => finish(this.status));
+      track();
       return send.call(this, body);
     }
     meta.pending = true;
     const run = () => {
       meta.timer = undefined;
-      if (effect.error === 'timeout') return; // hang until abort()
+      if (effect.error === 'timeout') {
+        // Hang until abort(), or until the client's own xhr.timeout fires (axios relies on it).
+        const limit = this.timeout ?? 0;
+        if (limit > 0) {
+          meta.timer = setTimeout(() => {
+            meta.pending = false;
+            finish(0);
+            settle(this, 0, '', ['readystatechange', 'timeout', 'loadend']);
+          }, limit);
+        }
+        return;
+      }
       meta.pending = false;
       if (effect.error === 'network') {
         finish(0);
@@ -177,7 +201,7 @@ function patchXhr(chaos: Chaos, proto: XhrLike, saved: Installed) {
         finish(fake.status);
         return settle(this, fake.status, fake.body, ['readystatechange', 'load', 'loadend']);
       }
-      this.addEventListener?.('loadend', () => finish(this.status));
+      track();
       send.call(this, body);
     };
     if (effect.latencyMs > 0) meta.timer = setTimeout(run, effect.latencyMs);

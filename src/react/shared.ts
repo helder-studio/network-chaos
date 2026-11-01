@@ -1,6 +1,6 @@
 import type { StorageAdapter } from '@helder-studio/storage';
 import type { ReactNode } from 'react';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { chaos } from '../chaos';
 
 export interface NetworkChaosProps {
@@ -23,11 +23,16 @@ let warned = false;
 export function useActivation({ enabled, storage, ignore, seed }: NetworkChaosProps) {
   if (enabled) chaos.install(); // idempotent
   const ignoreKey = ignore?.join('\n');
+  // Hydrate once: `storage={mmkv(instance)}` creates a new adapter object on every render.
+  const hydrated = useRef(false);
   useEffect(() => {
     if (!enabled) return;
     if (ignoreKey !== undefined) chaos.ignore(ignoreKey.split('\n'));
     if (seed !== undefined) chaos.seed(seed);
-    if (storage) void chaos.hydrate(storage);
+    if (storage && !hydrated.current) {
+      hydrated.current = true;
+      void chaos.hydrate(storage);
+    }
     if (!warned) {
       warned = true;
       console.warn('[network-chaos] active: requests may be delayed or failed on purpose.');

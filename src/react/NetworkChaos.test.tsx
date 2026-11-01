@@ -67,6 +67,21 @@ describe('<NetworkChaos> (web)', () => {
   });
 });
 
+describe('hydration', () => {
+  it('hydrates once even when the storage adapter is recreated on every render', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const getItem = vi.fn(() => null);
+    const adapter = () => ({ getItem, setItem: () => {}, removeItem: () => {} });
+    const el = document.createElement('div');
+    document.body.append(el);
+    const root = createRoot(el);
+    act(() => root.render(<NetworkChaos enabled storage={adapter()} />));
+    act(() => root.render(<NetworkChaos enabled storage={adapter()} />));
+    act(() => root.render(<NetworkChaos enabled storage={adapter()} />));
+    expect(getItem).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('panel helpers', () => {
   const base = { id: 'x', match: '*', enabled: true, source: 'code' as const };
 

@@ -166,7 +166,17 @@ function WebPanel() {
               type="button"
               aria-expanded={selected === entry.id}
               onClick={() => setSelected(selected === entry.id ? null : entry.id)}
-              style={{ all: 'unset', cursor: 'pointer', display: 'block', width: '100%' }}
+              style={{
+                background: 'none',
+                border: 0,
+                padding: 0,
+                color: 'inherit',
+                font: 'inherit',
+                textAlign: 'left',
+                cursor: 'pointer',
+                display: 'block',
+                width: '100%',
+              }}
             >
               <code>
                 {entry.method} {entry.url.replace(/^[a-z]+:\/\/[^/]+/i, '')}

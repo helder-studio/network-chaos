@@ -166,6 +166,46 @@ describe('XMLHttpRequest', () => {
   });
 });
 
+describe('XMLHttpRequest edge cases', () => {
+  it('fires timeout when the client set xhr.timeout during a timeout effect', async () => {
+    chaos.rule({ match: '*', error: 'timeout' });
+    const xhr = new XMLHttpRequest() as unknown as FakeXhr & { timeout: number };
+    const events: string[] = [];
+    for (const type of ['timeout', 'loadend']) xhr.addEventListener(type, () => events.push(type));
+    xhr.timeout = 5000;
+    (xhr as unknown as XMLHttpRequest).open('GET', 'https://x.dev/a');
+    (xhr as unknown as XMLHttpRequest).send();
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(events).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(events).toEqual(['timeout', 'loadend']);
+    expect(chaos.getLog()[0]?.status).toBe(0);
+  });
+
+  it('lets a reused instance read real values after a faked response', async () => {
+    chaos.rule({ id: 'fail', match: '*', fail: { status: 500 } });
+    const { xhr } = request('https://x.dev/a');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(xhr.status).toBe(500);
+    chaos.removeRule('fail');
+    (xhr as unknown as XMLHttpRequest).open('GET', 'https://x.dev/b');
+    expect(xhr.readyState).toBe(1);
+    (xhr as unknown as XMLHttpRequest).send();
+    await vi.advanceTimersByTimeAsync(1);
+    expect([xhr.status, xhr.responseText]).toEqual([200, 'real']);
+    expect(chaos.getLog().map((e) => e.status)).toEqual([200, 500]);
+  });
+
+  it('leaves synchronous requests untouched', () => {
+    chaos.setOffline(true);
+    const xhr = new XMLHttpRequest() as unknown as FakeXhr;
+    (xhr as unknown as XMLHttpRequest).open('GET', 'https://x.dev/a', false);
+    (xhr as unknown as XMLHttpRequest).send();
+    expect(FakeXhr.sent).toBe(1);
+    expect(chaos.getLog()).toEqual([]);
+  });
+});
+
 describe('install', () => {
   it('is idempotent and uninstall restores the originals', () => {
     const patched = globalThis.fetch;

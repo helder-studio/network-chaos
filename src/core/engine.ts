@@ -155,7 +155,6 @@ export function createChaos(now: () => number = Date.now) {
 
     /** Loads saved panel settings. Code rules registered earlier keep their place. */
     async hydrate(adapter: StorageAdapter) {
-      storage = adapter;
       let raw: string | null = null;
       try {
         raw = await adapter.getItem(KEY);
@@ -168,6 +167,8 @@ export function createChaos(now: () => number = Date.now) {
       } catch {
         data = undefined;
       }
+      // Attach storage only now, so nothing written while loading overwrites the saved settings.
+      storage = adapter;
       if (data?.v !== 1) return;
       const disabled = new Set(data.disabled);
       const codeRules = state.rules.filter((r) => r.source === 'code');
