@@ -24,3 +24,57 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+
+  # Dependabot PRs that pass verify are merged and released without a human.
+  # Exception: major updates of runtime dependencies wait for review.
+  dependabot:
+    needs: verify
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the changeset, merge
+      pull-requests: write # merge
+      actions: write # start the release workflow
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v3.1.0
+
+      - id: runtime
+        name: Does this change what users install?
+        run: |
+          if [ "${{ steps.meta.outputs.package-ecosystem }}" = "npm_and_yarn" ] && [ "${{ steps.meta.outputs.dependency-type }}" = "direct:production" ]; then
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.runtime.outputs.yes == 'true' && steps.meta.outputs.update-type == 'version-update:semver-major'
+        name: Leave major runtime updates for review
+        run: |
+          gh pr comment "$PR_URL" --body "Major update of a runtime dependency, so it isn't merged automatically. Review and merge by hand."
+
+      - if: steps.runtime.outputs.yes == 'true' && steps.meta.outputs.update-type != 'version-update:semver-major'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+
+      # A patch changeset makes the release workflow publish the update (see release.yml).
+      - if: steps.runtime.outputs.yes == 'true' && steps.meta.outputs.update-type != 'version-update:semver-major'
+        name: Add a changeset
+        run: |
+          name=$(jq -r .name package.json)
+          file=".changeset/dependabot-${{ github.event.pull_request.number }}.md"
+          printf -- '---\n"%s": patch\n---\n\nUpdate dependencies: %s.\n' "$name" "${{ steps.meta.outputs.dependency-names }}" > "$file"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$file"
+          git commit -m "Add changeset for ${{ steps.meta.outputs.dependency-names }}"
+          git push
+
+      - if: steps.runtime.outputs.yes != 'true' || steps.meta.outputs.update-type != 'version-update:semver-major'
+        name: Merge and release
+        run: |
+          gh pr merge --squash "$PR_URL"
+          # Merges made with this token don't trigger workflows, so start the release explicitly.
+          gh workflow run release.yml --ref main --repo "${{ github.repository }}"

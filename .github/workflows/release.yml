@@ -3,11 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch: # started by CI after it auto-merges a Dependabot PR
 
 concurrency: release-${{ github.ref }}
 
 permissions:
-  contents: write # push tags, create GitHub releases, commit version bumps
+  contents: write # push tags and version commits, create GitHub releases
   pull-requests: write # open the "Version Packages" PR
   id-token: write # npm trusted publishing and provenance
 
@@ -24,12 +25,33 @@ jobs:
           # No registry-url: it writes an .npmrc with a placeholder NODE_AUTH_TOKEN that shadows OIDC.
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
-      # Pending changesets: open or update the Version Packages PR. Nothing is published here.
+
+      # Only Dependabot changesets pending: version and publish right away, no PR to merge.
+      - id: auto
+        name: Only dependency updates pending?
+        run: |
+          pending=$(find .changeset -name '*.md' ! -name README.md)
+          if [ -n "$pending" ] && ! echo "$pending" | grep -qv '/dependabot-'; then
+            echo "only=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.auto.outputs.only == 'true'
+        name: Version dependency updates
+        run: |
+          pnpm changeset version
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Release dependency updates"
+          git push
+
+      # Other pending changesets: open or update the Version Packages PR. Nothing is published here.
       - id: changesets
+        if: steps.auto.outputs.only != 'true'
         uses: changesets/action@v2.1.2 # no moving v2 tag; the v2 branch is the dev head
-      # No pending changesets: publish with the npm CLI. Auth comes from npm trusted publishing
-      # (OIDC via id-token), so no NPM_TOKEN secret is needed.
-      - if: steps.changesets.outputs.has-changesets == 'false'
+
+      # Nothing pending (or just versioned above): publish with the npm CLI. Auth comes from npm
+      # trusted publishing (OIDC via id-token), so no NPM_TOKEN secret is needed.
+      - if: steps.auto.outputs.only == 'true' || steps.changesets.outputs.has-changesets == 'false'
         run: npm --version && pnpm release
         env:
           GH_TOKEN: ${{ github.token }}

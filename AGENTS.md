@@ -55,5 +55,8 @@ usage and API tables, Compared with…, Support (Ko-fi), License. Document every
 
 - Plain, imperative commit messages ("Fix XHR timeout handling"). No AI attribution or
   co-author trailers.
+- Dependency updates are automatic: Dependabot opens PRs weekly, CI merges them when `pnpm verify`
+  passes, and runtime-dependency updates release a patch to npm on their own. Major runtime updates
+  wait for review.
 - Never publish to npm, push tags or create releases by hand: merging the "Version Packages" PR
   makes CI publish with provenance.

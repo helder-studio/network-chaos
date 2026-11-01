@@ -1,0 +1,27 @@
+# Weekly dependency updates. CI auto-merges them when they pass (see the dependabot job in ci.yml).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Skip versions younger than 3 days: most malicious releases are caught and pulled by then.
+    cooldown:
+      default-days: 3
+      exclude:
+        - "@helder-studio/*" # our own packages: take them right away
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
