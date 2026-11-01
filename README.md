@@ -48,6 +48,8 @@ export default function Root() {
 
 ## Features
 
+- 🖥️ **Web panel too**: click the badge for the same controls in the browser
+- 🧪 **Test helper**: `createTestChaos()` reuses the rules in Jest and Vitest
 - 📱 **QA panel on the device**: master switch, presets, rules and a live request log. Tap any request
   to make that endpoint fail, slow, time out or go flaky
 - 🎯 **Precise rules**: method + URL glob, host and header matching, latency ranges, status codes,
@@ -133,10 +135,26 @@ config.resolver.resolveRequest = (context, name, platform) =>
 
 The `/noop` entry has the same API and does nothing.
 
+## In tests
+
+The same rules work in Jest and Vitest against whatever `fetch` / `XMLHttpRequest` the test
+environment provides:
+
+```ts
+import { createTestChaos } from '@helder-studio/network-chaos/testing';
+
+const chaos = createTestChaos({ seed: 1, rules: [{ match: 'POST /api/orders*', fail: { status: 503 } }] });
+afterEach(() => chaos.restore());
+
+test('shows a retry banner when ordering fails', async () => {
+  render(<Checkout />);
+  await user.click(screen.getByRole('button', { name: 'Place order' }));
+  expect(await screen.findByText('Something went wrong. Try again?')).toBeVisible();
+});
+```
+
 ## Coming soon
 
-- Web panel (the web build shows a status badge and is driven by `chaos.*` for now)
-- `/testing` helper so Jest and Vitest reuse the same rules
 - Share a chaos setup by deep link or QR code
 
 ## Compared with other tools

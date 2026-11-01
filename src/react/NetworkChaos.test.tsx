@@ -37,9 +37,33 @@ describe('<NetworkChaos> (web)', () => {
     const el = mount(true);
     expect(globalThis.fetch).not.toBe(before);
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(el.querySelector('[role="status"]')?.textContent).toBe('⚡ network chaos: on');
+    expect(el.querySelector('button')?.textContent).toBe('⚡ network chaos: on');
     act(() => chaos.setOffline(true));
-    expect(el.querySelector('[role="status"]')?.textContent).toBe('⚡ network chaos: offline');
+    expect(el.querySelector('button')?.textContent).toBe('⚡ network chaos: offline');
+  });
+
+  it('opens a panel where a logged request becomes a rule', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const el = mount(true);
+    const click = (text: string) =>
+      act(() =>
+        [...el.querySelectorAll('button')].find((b) => b.textContent?.includes(text))?.click(),
+      );
+    click('network chaos');
+    expect(el.querySelector('section[aria-label="Network chaos"]')).not.toBe(null);
+    click('flaky');
+    expect(chaos.getState().preset).toBe('flaky');
+    act(() => {
+      chaos.decide({ method: 'GET', url: 'https://x.dev/api/orders?id=1' });
+    });
+    click('GET /api/orders');
+    click('Fail 500');
+    expect(chaos.getState().rules.map((r) => [r.match, r.fail?.status])).toEqual([
+      ['GET /api/orders*', 500],
+    ]);
+    act(() => chaos.preset(null));
+    act(() => chaos.close());
+    expect(el.querySelector('section')).toBe(null);
   });
 });
 

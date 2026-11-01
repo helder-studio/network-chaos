@@ -13,7 +13,8 @@ React Native + web. PDF: "Library 2: Network Chaos".
   Fake responses set instance props and dispatch events (`{ type }` objects when `Event` is missing).
 - `src/chaos.ts`: the `chaos` singleton. `src/react/`: shared hooks + web component (badge only).
   `src/native/`: RN component with draggable badge and Modal panel (core RN primitives only).
-- Entries: `index` (web), `native` (exports condition `react-native`), `noop` (same API, does nothing).
+- Entries: `index` (web, DOM panel), `native` (exports condition `react-native`), `noop` (same API,
+  does nothing), `testing` (`createTestChaos` for Jest/Vitest).
 
 ## Decisions
 
@@ -27,7 +28,7 @@ React Native + web. PDF: "Library 2: Network Chaos".
 
 ## Open
 
-DOM panel and `/testing` helper (v0.2), Expo example, device QA checklist, late-install warning.
+Expo example, device QA checklist, late-install warning, share-by-QR. Web DOM panel and `/testing` (`createTestChaos`) done.
 
 ## Commands
 

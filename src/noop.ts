@@ -5,7 +5,7 @@ import type { NetworkChaosProps } from './react/shared';
 export type { ChaosController } from './chaos';
 export type { ChaosState, LogEntry, Outcome } from './core/engine';
 export type { PresetName } from './core/presets';
-export type { ChaosRequest, Range, Rule } from './core/rules';
+export type { ChaosRequest, Effect, Range, Rule } from './core/rules';
 export type { NetworkChaosProps } from './react/shared';
 
 const noop = () => {};
