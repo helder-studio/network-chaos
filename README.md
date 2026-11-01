@@ -175,4 +175,4 @@ If this saves you time, you can buy me a coffee on Ko-fi. It keeps the helder-st
 
 ## License
 
-[MIT](./LICENSE) © helder-studio
+[MIT](./LICENSE) © [Helder Studio](https://www.helderstudio.com/en/)
